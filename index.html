@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏁 FAIRENheight 2026 NASCAR Pool Dashboard</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem;
+      background: #f0f2f5;
+      color: #212529;
+    }
+    header {
+      background: linear-gradient(135deg, #c0392b, #e17055);
+      color: white;
+      padding: 1.4rem 1.75rem;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.15);
+    }
+    header h1 { margin: 0 0 .5rem; font-size: 1.6rem; }
+    header p { margin: .2rem 0; font-size: .9rem; opacity: .9; }
+    header a { color: rgba(255,255,255,.85); }
+    .badges { margin-top: .6rem; }
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,.22);
+      border-radius: 5px;
+      padding: 3px 10px;
+      font-weight: 600;
+      font-size: .85rem;
+      margin-right: .4rem;
+    }
+    section {
+      background: white;
+      border-radius: 10px;
+      padding: 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+    }
+    section h2 {
+      margin: 0 0 1rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #343a40;
+      border-bottom: 2px solid #f0f2f5;
+      padding-bottom: .5rem;
+    }
+    .chart-wrap { overflow-x: auto; }
+    .note {
+      background: #fff8e1;
+      border-left: 4px solid #ffc107;
+      padding: .5rem .9rem;
+      font-size: .82rem;
+      margin-bottom: 1rem;
+      border-radius: 0 5px 5px 0;
+      color: #5d4037;
+    }
+    .note code { background: #ffe082; padding: 1px 4px; border-radius: 3px; font-size: .8rem; }
+    .picks ul { margin: .4rem 0 .8rem 1.2rem; padding: 0; }
+    .picks li { font-size: .9rem; line-height: 1.8; }
+    .picks strong { color: #e17055; }
+    footer {
+      text-align: center;
+      font-size: .8rem;
+      color: #adb5bd;
+      margin-top: 1rem;
+      padding-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🏁 FAIRENheight Racing Alliance</h1>
+  <p>2026 Carlsbad NASCAR Big Pool &nbsp;·&nbsp;
+     <a href="https://nascarracingpool.com" target="_blank">nascarracingpool.com</a></p>
+  <p>Through Wk 13 · Charlotte 600 · May 25, 2026 · Won by Daniel Suárez</p>
+  <div class="badges">
+    <span class="badge">14th of 20</span>
+    <span class="badge">412 pts</span>
+    <span class="badge">−149 to 1st</span>
+    <span class="badge">Next: Nashville (Wk 14) · due May 31</span>
+  </div>
+</header>
+
+<section>
+  <h2>📊 Pool Standings — After Charlotte (Wk 13)</h2>
+  <div class="note">
+    ⚠️ Charlotte scores are PENDING. Once nascarracingpool.com updates, edit <code>poolStandings</code>
+    in this file: set new <code>pts</code> &amp; <code>pos</code>, and set <code>prevPos</code> = the values
+    that are currently in <code>pos</code> before you overwrite them.
+  </div>
+  <div class="chart-wrap" id="standings"></div>
+</section>
+
+<section>
+  <h2>🏁 Driver Performance Heatmap (by Track Type)</h2>
+  <div class="chart-wrap" id="heatmap"></div>
+</section>
+
+<section class="picks">
+  <h2>📝 Competitor Pick Notes</h2>
+  <strong>Week 13 — Charlotte 600 (May 25)</strong>
+  <ul>
+    <li>William Byron: 4 teams (BurninRubber69, MAD, SKIDMARKS, ASK Motorsports) — all burned · Byron finished 9th</li>
+    <li>Tyler Reddick: 3 teams (The Big One, Wrecky Stinkhouse, Bigdaddydicdeluxe) — all burned · Reddick 4th, 119 laps led</li>
+    <li>Chase Briscoe: 3 teams (Roadkill, PrestigeWorldwide, Slide Job) — DNF (finish 34)</li>
+    <li><strong>FAIRENheight: Joey Logano — 8th ✓</strong> (burned · pool pts TBD)</li>
+  </ul>
+  <p style="font-size:.9rem;color:#666">
+    <strong>Week 14 — Nashville:</strong> 1.33mi concrete oval (intermediate). Check heatmap for
+    unburned drivers with strong intermediate avg finishes.
+  </p>
+</section>
+
+<footer>
+  Local dashboard · Updated after Wk 13 · Charlotte 600 · May 25, 2026 ·
+  <a href="https://observablehq.com/d/3430a7ea7a524c3f" target="_blank">Observable source</a>
+</footer>
+
+<script type="module">
+import * as Plot from "https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6/+esm";
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TRACK CONFIG  (doesn't change season to season)
+// ═══════════════════════════════════════════════════════════════════════
+
+const trackTypes = ["intermediate", "short", "plate", "road"];
+const trackLabels = {
+  intermediate: "🏁 Intermediate",
+  short:        "🔄 Short Track",
+  plate:        "🌀 Plate/Super",
+  road:         "🌿 Road Course"
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DRIVER BASE DATA  (results through Wk 12 / Watkins Glen)
+//  burned: true = FAIRENheight already used this driver
+// ═══════════════════════════════════════════════════════════════════════
+
+const drivers = [
+  {
+    name: "Ty Gibbs", team: "JGR", car: 54, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:23, lapsLed:14, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:37, lapsLed:1,  dnf:true},
+      {race:"COTA",           type:"road",         finish:4,  lapsLed:5,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:4,  lapsLed:12, dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:5,  lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:6,  lapsLed:1,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:4,  lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:1,  lapsLed:25, dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:9,  lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:34, lapsLed:17, dnf:true},
+      {race:"Texas",          type:"intermediate", finish:36, lapsLed:1,  dnf:true},
+      {race:"Watkins Glen",   type:"road",         finish:3,  lapsLed:17, dnf:false},
+    ]
+  },
+  {
+    name: "Carson Hocevar", team: "Spire", car: 7, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:18, lapsLed:27, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:4,  lapsLed:2,  dnf:false},
+      {race:"COTA",           type:"road",         finish:31, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:20, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:22, lapsLed:1,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:4,  lapsLed:2,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:17, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:10, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:13, lapsLed:6,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:1,  lapsLed:19, dnf:false},
+      {race:"Texas",          type:"intermediate", finish:7,  lapsLed:40, dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:28, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Brad Keselowski", team: "RFK", car: 6, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:5,  lapsLed:0,   dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:17, lapsLed:10,  dnf:false},
+      {race:"COTA",           type:"road",         finish:20, lapsLed:0,   dnf:false},
+      {race:"Phoenix",        type:"short",        finish:15, lapsLed:0,   dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:10, lapsLed:4,   dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:2,  lapsLed:142, dnf:false},
+      {race:"Martinsville",   type:"short",        finish:13, lapsLed:0,   dnf:false},
+      {race:"Bristol",        type:"short",        finish:14, lapsLed:0,   dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:6,  lapsLed:0,   dnf:false},
+      {race:"Talladega",      type:"plate",        finish:31, lapsLed:0,   dnf:false},
+      {race:"Texas",          type:"intermediate", finish:13, lapsLed:4,   dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:30, lapsLed:0,   dnf:false},
+    ]
+  },
+  {
+    name: "Ryan Preece", team: "RFK", car: 60, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:25, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:9,  lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:18, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:13, lapsLed:4,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:11, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:13, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:12, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:8,  lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:11, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:18, lapsLed:21, dnf:false},
+      {race:"Texas",          type:"intermediate", finish:14, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:14, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Daniel Suarez", team: "Trackhouse", car: 99, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:13, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:5,  lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:25, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:30, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:18, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:7,  lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:20, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:12, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:19, lapsLed:1,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:12, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:6,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:13, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Austin Cindric", team: "Penske", car: 2, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:34, lapsLed:5,  dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:26, lapsLed:21, dnf:true},
+      {race:"COTA",           type:"road",         finish:32, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:34, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:19, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:5,  lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:8,  lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:16, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:12, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:8,  lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:15, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:9,  lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Chase Briscoe", team: "JGR", car: 19, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:36, lapsLed:23, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:2,  lapsLed:27, dnf:false},
+      {race:"COTA",           type:"road",         finish:37, lapsLed:8,  dnf:true},
+      {race:"Phoenix",        type:"short",        finish:37, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:8,  lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:12, lapsLed:4,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:14, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:5,  lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:3,  lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:29, lapsLed:3,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:23, lapsLed:4,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:4,  lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "AJ Allmendinger", team: "Kaulig", car: 16, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:19, lapsLed:1,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:12, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:9,  lapsLed:1,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:19, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:24, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:30, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:27, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:15, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:31, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:16, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:25, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:7,  lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Austin Dillon", team: "RCR", car: 3, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:37, lapsLed:0,  dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:29, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:19, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:16, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:12, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:25, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:25, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:18, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:16, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:19, lapsLed:5,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:18, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:6,  lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Kyle Busch", team: "RCR", car: 8, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:15, lapsLed:19, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:34, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:12, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:17, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:28, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:21, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:24, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:25, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:35, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:10, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:20, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:8,  lapsLed:0,  dnf:false},
+    ]
+    // Note: Kyle Busch did not race Charlotte 600
+  },
+  {
+    name: "Zane Smith", team: "Front Row", car: 38, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:6,  lapsLed:9,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:7,  lapsLed:1,  dnf:false},
+      {race:"COTA",           type:"road",         finish:33, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:27, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:14, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:22, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:34, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:19, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:32, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:5,  lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:22, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:18, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Erik Jones", team: "Legacy", car: 43, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:21, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:24, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:34, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:10, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:20, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:10, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:21, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:23, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:23, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:23, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:12, lapsLed:13, dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:19, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Todd Gilliland", team: "Front Row", car: 34, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:39, lapsLed:1,  dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:25, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:21, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:12, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:34, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:23, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:23, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:6,  lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:17, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:11, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:32, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:17, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Ricky Stenhouse Jr.", team: "JTG", car: 47, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:2,  lapsLed:4,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:36, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:28, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:22, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:29, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:29, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:30, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:17, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:21, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:6,  lapsLed:2,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:19, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:31, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Noah Gragson", team: "Legacy", car: 42, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:11, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:14, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:22, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:36, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:30, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:26, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:28, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:26, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:28, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:9,  lapsLed:2,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:28, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:22, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Josh Berry", team: "SHR", car: 4, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:9,  lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:38, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:26, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:32, lapsLed:13, dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:31, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:17, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:10, lapsLed:2,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:32, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:27, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:33, lapsLed:0,  dnf:true},
+      {race:"Texas",          type:"intermediate", finish:29, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:32, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Connor Zilisch", team: "Trackhouse", car: 88, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:33, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:30, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:14, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:29, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:32, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:18, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:26, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:33, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:29, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:26, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:16, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:20, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Alex Bowman", team: "Hendrick", car: 48, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:40, lapsLed:0,  dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:23, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:36, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:37, lapsLed:0,  dnf:true},
+      {race:"Kansas",         type:"intermediate", finish:18, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:3,  lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:3,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:25, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Riley Herbst", team: "SHR", car: 10, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:8,  lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:33, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:23, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:18, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:23, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:35, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:35, lapsLed:0,  dnf:true},
+      {race:"Bristol",        type:"short",        finish:21, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:14, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:25, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:11, lapsLed:1,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:26, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Cole Custer", team: "SHR", car: 41, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:24, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:22, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:29, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:35, lapsLed:0,  dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:27, lapsLed:1,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:28, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:31, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:28, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:25, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:38, lapsLed:0,  dnf:true},
+      {race:"Texas",          type:"intermediate", finish:35, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:15, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "John H. Nemechek", team: "Legacy", car: 42, burned: false,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:26, lapsLed:19, dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:19, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:17, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:25, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:21, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:27, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:29, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:35, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:22, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:22, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:21, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:10, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Michael McDowell", team: "Front Row", car: 71, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:22, lapsLed:10, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:20, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:5,  lapsLed:5,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:9,  lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:26, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:20, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:18, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:24, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:34, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:32, lapsLed:1,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:27, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:2,  lapsLed:5,  dnf:false},
+    ]
+  },
+  {
+    name: "Chris Buescher", team: "RFK", car: 17, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:7,  lapsLed:4,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:15, lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:24, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:14, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:6,  lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:9,  lapsLed:41, dnf:false},
+      {race:"Martinsville",   type:"short",        finish:19, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:13, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:10, lapsLed:1,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:2,  lapsLed:22, dnf:false},
+      {race:"Texas",          type:"intermediate", finish:5,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:12, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Shane Van Gisbergen", team: "Trackhouse", car: 97, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:30, lapsLed:3,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:6,  lapsLed:1,  dnf:false},
+      {race:"COTA",           type:"road",         finish:2,  lapsLed:2,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:11, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:36, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:14, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:11, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:34, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:36, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:20, lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:17, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:1,  lapsLed:74, dnf:false},
+    ]
+  },
+  {
+    name: "Ryan Blaney", team: "Penske", car: 12, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:27, lapsLed:2,   dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:10, lapsLed:6,   dnf:false},
+      {race:"COTA",           type:"road",         finish:8,  lapsLed:11,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:1,  lapsLed:28,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:16, lapsLed:5,   dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:3,  lapsLed:0,   dnf:false},
+      {race:"Martinsville",   type:"short",        finish:6,  lapsLed:2,   dnf:false},
+      {race:"Bristol",        type:"short",        finish:2,  lapsLed:190, dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:24, lapsLed:0,   dnf:false},
+      {race:"Talladega",      type:"plate",        finish:37, lapsLed:0,   dnf:true},
+      {race:"Texas",          type:"intermediate", finish:10, lapsLed:5,   dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:11, lapsLed:0,   dnf:false},
+    ]
+  },
+  {
+    name: "William Byron", team: "Hendrick", car: 24, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:12, lapsLed:0,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:28, lapsLed:0,  dnf:true},
+      {race:"COTA",           type:"road",         finish:13, lapsLed:1,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:7,  lapsLed:1,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:3,  lapsLed:26, dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:8,  lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:5,  lapsLed:6,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:30, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:7,  lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:35, lapsLed:0,  dnf:true},
+      {race:"Texas",          type:"intermediate", finish:8,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:36, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Tyler Reddick", team: "23XI", car: 45, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:1,  lapsLed:1,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:1,  lapsLed:53, dnf:false},
+      {race:"COTA",           type:"road",         finish:1,  lapsLed:58, dnf:false},
+      {race:"Phoenix",        type:"short",        finish:8,  lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:13, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:1,  lapsLed:77, dnf:false},
+      {race:"Martinsville",   type:"short",        finish:15, lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:4,  lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:1,  lapsLed:10, dnf:false},
+      {race:"Talladega",      type:"plate",        finish:14, lapsLed:2,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:4,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:5,  lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Denny Hamlin", team: "JGR", car: 11, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:31, lapsLed:3,   dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:13, lapsLed:10,  dnf:false},
+      {race:"COTA",           type:"road",         finish:10, lapsLed:0,   dnf:false},
+      {race:"Phoenix",        type:"short",        finish:5,  lapsLed:5,   dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:1,  lapsLed:134, dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:11, lapsLed:0,   dnf:false},
+      {race:"Martinsville",   type:"short",        finish:2,  lapsLed:292, dnf:false},
+      {race:"Bristol",        type:"short",        finish:9,  lapsLed:0,   dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:4,  lapsLed:131, dnf:false},
+      {race:"Talladega",      type:"plate",        finish:15, lapsLed:28,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:2,  lapsLed:21,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:16, lapsLed:0,   dnf:false},
+    ]
+  },
+  {
+    name: "Ross Chastain", team: "Trackhouse", car: 1, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:20, lapsLed:12, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:3,  lapsLed:0,  dnf:false},
+      {race:"COTA",           type:"road",         finish:35, lapsLed:4,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:28, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:17, lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:16, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:16, lapsLed:14, dnf:false},
+      {race:"Bristol",        type:"short",        finish:20, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:26, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:7,  lapsLed:22, dnf:false},
+      {race:"Texas",          type:"intermediate", finish:26, lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:27, lapsLed:4,  dnf:false},
+    ]
+  },
+  {
+    name: "Kyle Larson", team: "Hendrick", car: 5, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:16, lapsLed:21,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:32, lapsLed:48,  dnf:true},
+      {race:"COTA",           type:"road",         finish:6,  lapsLed:0,   dnf:false},
+      {race:"Phoenix",        type:"short",        finish:3,  lapsLed:0,   dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:7,  lapsLed:62,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:32, lapsLed:20,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:9,  lapsLed:0,   dnf:false},
+      {race:"Bristol",        type:"short",        finish:3,  lapsLed:284, dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:2,  lapsLed:78,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:40, lapsLed:0,   dnf:true},
+      {race:"Texas",          type:"intermediate", finish:34, lapsLed:0,   dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:23, lapsLed:0,   dnf:false},
+    ]
+  },
+  {
+    name: "Bubba Wallace", team: "23XI", car: 23, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:10, lapsLed:40, dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:8,  lapsLed:46, dnf:false},
+      {race:"COTA",           type:"road",         finish:11, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:6,  lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:9,  lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:34, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:36, lapsLed:0,  dnf:true},
+      {race:"Bristol",        type:"short",        finish:11, lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:5,  lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:36, lapsLed:3,  dnf:true},
+      {race:"Texas",          type:"intermediate", finish:9,  lapsLed:0,  dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:29, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Christopher Bell", team: "JGR", car: 20, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:35, lapsLed:9,   dnf:true},
+      {race:"Atlanta",        type:"plate",        finish:21, lapsLed:9,   dnf:false},
+      {race:"COTA",           type:"road",         finish:3,  lapsLed:0,   dnf:false},
+      {race:"Phoenix",        type:"short",        finish:2,  lapsLed:176, dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:4,  lapsLed:31,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:19, lapsLed:0,   dnf:false},
+      {race:"Martinsville",   type:"short",        finish:7,  lapsLed:0,   dnf:false},
+      {race:"Bristol",        type:"short",        finish:27, lapsLed:0,   dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:20, lapsLed:47,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:17, lapsLed:31,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:38, lapsLed:22,  dnf:true},
+      {race:"Watkins Glen",   type:"road",         finish:21, lapsLed:0,   dnf:false},
+    ]
+  },
+  {
+    name: "Chase Elliott", team: "Hendrick", car: 9, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:4,  lapsLed:2,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:11, lapsLed:11, dnf:false},
+      {race:"COTA",           type:"road",         finish:7,  lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:23, lapsLed:0,  dnf:false},
+      {race:"Las Vegas",      type:"intermediate", finish:2,  lapsLed:0,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:15, lapsLed:6,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:1,  lapsLed:84, dnf:false},
+      {race:"Bristol",        type:"short",        finish:22, lapsLed:6,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:8,  lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:4,  lapsLed:0,  dnf:false},
+      {race:"Texas",          type:"intermediate", finish:1,  lapsLed:87, dnf:false},
+      {race:"Watkins Glen",   type:"road",         finish:24, lapsLed:0,  dnf:false},
+    ]
+  },
+  {
+    name: "Joey Logano", team: "Penske", car: 22, burned: true,
+    results: [
+      {race:"Daytona 500",    type:"plate",        finish:3,  lapsLed:9,  dnf:false},
+      {race:"Atlanta",        type:"plate",        finish:18, lapsLed:26, dnf:false},
+      {race:"COTA",           type:"road",         finish:15, lapsLed:0,  dnf:false},
+      {race:"Phoenix",        type:"short",        finish:31, lapsLed:73, dnf:true},
+      {race:"Las Vegas",      type:"intermediate", finish:15, lapsLed:3,  dnf:false},
+      {race:"Darlington",     type:"intermediate", finish:33, lapsLed:0,  dnf:false},
+      {race:"Martinsville",   type:"short",        finish:3,  lapsLed:0,  dnf:false},
+      {race:"Bristol",        type:"short",        finish:7,  lapsLed:0,  dnf:false},
+      {race:"Kansas",         type:"intermediate", finish:30, lapsLed:0,  dnf:false},
+      {race:"Talladega",      type:"plate",        finish:39, lapsLed:3,  dnf:true},
+      {race:"Texas",          type:"intermediate", finish:37, lapsLed:0,  dnf:true},
+      {race:"Watkins Glen",   type:"road",         finish:38, lapsLed:0,  dnf:false},
+    ]
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WEEKLY RACE RESULTS — add a new block each week
+//
+//  HOW TO ADD NEXT WEEK'S RACE:
+//  1. Copy the charlotteData block below
+//  2. Rename it (e.g. nashvilleData)
+//  3. Fill in finish/lapsLed/dnf for each driver
+//  4. Add the merge step in COMPUTATION below (same pattern as Charlotte)
+//  5. Update poolStandings pts/pos/prevPos
+//  6. Update the title/subtitle in both chart calls
+// ═══════════════════════════════════════════════════════════════════════
+
+// Wk 13 · Charlotte 600 · May 25, 2026 · Won by Daniel Suárez
+// NOTE: "John H. Nemechek" in drivers vs "John Hunter Nemechek" here — name mismatch means
+//       Nemechek's Charlotte result is not applied (same as Observable notebook behavior).
+const charlotteData = {
+  "Ty Gibbs":             {finish:6,  lapsLed:17,  dnf:false},
+  "Carson Hocevar":       {finish:23, lapsLed:4,   dnf:false},
+  "Brad Keselowski":      {finish:15, lapsLed:0,   dnf:false},
+  "Austin Cindric":       {finish:38, lapsLed:0,   dnf:true},
+  "Chase Briscoe":        {finish:34, lapsLed:34,  dnf:true},
+  "AJ Allmendinger":      {finish:18, lapsLed:0,   dnf:false},
+  "Ryan Preece":          {finish:33, lapsLed:1,   dnf:true},
+  "Daniel Suarez":        {finish:1,  lapsLed:17,  dnf:false},
+  "Zane Smith":           {finish:10, lapsLed:31,  dnf:false},
+  "Noah Gragson":         {finish:24, lapsLed:0,   dnf:false},
+  "Erik Jones":           {finish:13, lapsLed:0,   dnf:false},
+  "Austin Dillon":        {finish:32, lapsLed:0,   dnf:true},
+  "Connor Zilisch":       {finish:39, lapsLed:0,   dnf:true},
+  "Austin Hill":          {finish:27, lapsLed:0,   dnf:false},
+  "John Hunter Nemechek": {finish:26, lapsLed:0,   dnf:false},
+  "Ricky Stenhouse Jr.":  {finish:12, lapsLed:0,   dnf:false},
+  "Todd Gilliland":       {finish:20, lapsLed:0,   dnf:false},
+  "Corey Heim":           {finish:19, lapsLed:0,   dnf:false},
+  "Ty Dillon":            {finish:25, lapsLed:0,   dnf:false},
+  "Josh Berry":           {finish:29, lapsLed:0,   dnf:false},
+  "Alex Bowman":          {finish:17, lapsLed:0,   dnf:false},
+  "Cole Custer":          {finish:16, lapsLed:0,   dnf:false},
+  "Joey Logano":          {finish:8,  lapsLed:0,   dnf:false},
+  "Kyle Larson":          {finish:5,  lapsLed:14,  dnf:false},
+  "Michael McDowell":     {finish:14, lapsLed:3,   dnf:false},
+  "Ross Chastain":        {finish:35, lapsLed:3,   dnf:true},
+  "Ryan Blaney":          {finish:7,  lapsLed:0,   dnf:false},
+  "Shane Van Gisbergen":  {finish:11, lapsLed:11,  dnf:false},
+  "Tyler Reddick":        {finish:4,  lapsLed:119, dnf:false},
+  "William Byron":        {finish:9,  lapsLed:0,   dnf:false},
+  "Bubba Wallace":        {finish:22, lapsLed:0,   dnf:false},
+  "Chase Elliott":        {finish:37, lapsLed:0,   dnf:true},
+  "Chris Buescher":       {finish:30, lapsLed:0,   dnf:false},
+  "Christopher Bell":     {finish:2,  lapsLed:44,  dnf:false},
+  "Denny Hamlin":         {finish:3,  lapsLed:75,  dnf:false},
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  POOL STANDINGS — UPDATE EACH WEEK
+//  pos     = current position (after most recent race)
+//  prevPos = position before most recent race (drives the ↑↓ arrows)
+//  us:true = FAIRENheight
+// ═══════════════════════════════════════════════════════════════════════
+
+const poolStandings = [
+  {team:"As Fast As A Gator",          pts:561, pos:1,  prevPos:1},
+  {team:"Stompers",                     pts:545, pos:2,  prevPos:2},
+  {team:"Roadkill",                     pts:520, pos:3,  prevPos:3},
+  {team:"BurninRubber69",               pts:511, pos:4,  prevPos:4},
+  {team:"Wrecky Stinkhouse",            pts:508, pos:5,  prevPos:5},
+  {team:"split the lane",               pts:505, pos:6,  prevPos:6},
+  {team:"SKIDMARKS",                    pts:492, pos:7,  prevPos:7},
+  {team:"Tap That Ass",                 pts:488, pos:8,  prevPos:8},
+  {team:"The Big One",                  pts:480, pos:9,  prevPos:9},
+  {team:"Goodyear",                     pts:464, pos:10, prevPos:10},
+  {team:"Jenner2.0",                    pts:460, pos:11, prevPos:11},
+  {team:"ASK Motorsports",              pts:429, pos:12, prevPos:12},
+  {team:"MAD",                          pts:425, pos:13, prevPos:13},
+  {team:"FAIRENheight Racing Alliance", pts:412, pos:14, prevPos:14, us:true},
+  {team:"Melon Balls",                  pts:397, pos:15, prevPos:15},
+  {team:"Slide Job",                    pts:377, pos:16, prevPos:16},
+  {team:"PrestigeWorldwide",            pts:372, pos:17, prevPos:17},
+  {team:"Bellwether Racing",            pts:368, pos:18, prevPos:18},
+  {team:"Bigdaddydicdeluxe",            pts:347, pos:19, prevPos:19},
+  {team:"LonGone",                      pts:321, pos:20, prevPos:20},
+];
+
+// ═══════════════════════════════════════════════════════════════════════
+//  COMPUTATION — no need to edit below this line
+// ═══════════════════════════════════════════════════════════════════════
+
+// Merge Charlotte results into driver history
+const driversWithCharlotte = drivers.map(d => {
+  const c = charlotteData[d.name];
+  if (!c) return d;
+  return {
+    ...d,
+    results: [...d.results, {
+      race: "Charlotte 600", type: "intermediate",
+      finish: c.finish, lapsLed: c.lapsLed, dnf: c.dnf
+    }]
+  };
+});
+
+// Compute per-driver per-track-type aggregate stats
+const heatmapData = driversWithCharlotte.flatMap(d =>
+  trackTypes.map(type => {
+    const races       = d.results.filter(r => r.type === type);
+    const dnfCount    = races.filter(r => r.dnf).length;
+    const cleanRaces  = races.filter(r => !r.dnf);
+    const avgFinish   = cleanRaces.length
+      ? +(cleanRaces.reduce((s, r) => s + r.finish, 0) / cleanRaces.length).toFixed(1)
+      : null;
+    const totalLapsLed = races.reduce((s, r) => s + r.lapsLed, 0);
+    const starts      = races.length;
+    return {
+      driver: d.name, team: d.team, type,
+      label: trackLabels[type],
+      avgFinish, dnfCount, totalLapsLed, starts,
+      burned: d.burned,
+      driverLabel: d.burned ? `${d.name} ★` : d.name,
+      score: avgFinish
+    };
+  })
+);
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CHARTS
+// ═══════════════════════════════════════════════════════════════════════
+
+// Pool Standings chart
+document.getElementById("standings").append(Plot.plot({
+  title: "Pool Standings — After Charlotte (Wk 13)",
+  subtitle: "FAIRENheight highlighted in red. ↑↓ = spots moved vs. prior race.",
+  marginLeft: 220,
+  x: { label: "Points", grid: true },
+  color: { domain: [false, true], range: ["#b2bec3", "#e17055"] },
+  marks: [
+    Plot.barX(poolStandings, {
+      x: "pts", y: "team", fill: "us",
+      sort: { y: "x", reverse: true },
+      title: d => `${d.team}: ${d.pts} pts (${d.pos}${d.pos===1?"st":d.pos===2?"nd":d.pos===3?"rd":"th"})`
+    }),
+    Plot.text(poolStandings, {
+      x: "pts", y: "team",
+      text: d => ` ${d.pts}`,
+      dx: 2, fontSize: 11,
+      fontWeight: d => d.us ? "bold" : "normal"
+    }),
+    Plot.text(poolStandings, {
+      x: 0, y: "team",
+      text: d => {
+        const delta = d.prevPos - d.pos;
+        return delta > 0 ? `↑${delta}` : delta < 0 ? `↓${Math.abs(delta)}` : "—";
+      },
+      fill: d => {
+        const delta = d.prevPos - d.pos;
+        return delta > 0 ? "#00b894" : delta < 0 ? "#d63031" : "#636e72";
+      },
+      dx: -4, textAnchor: "end",
+      fontSize: 11, fontWeight: "bold"
+    }),
+    Plot.ruleX([0])
+  ]
+}));
+
+// Driver performance heatmap
+document.getElementById("heatmap").append(Plot.plot({
+  title: "Driver Performance by Track Type (2026, through Charlotte (Wk 13))",
+  subtitle: "Darker green = better avg finish. DNF count in parens. ★ = burned by FAIRENheight.",
+  marginLeft: 170, marginBottom: 60, height: 1050, width: 820,
+  y: { label: "Driver" },
+  color: {
+    scheme: "RdYlGn",
+    domain: [40, 1],
+    legend: true,
+    label: "Avg Finish (lower = better)"
+  },
+  marks: [
+    Plot.cell(heatmapData, {
+      x: "label", y: "driverLabel", fill: "avgFinish",
+      title: d =>
+        `${d.driver} (${d.team}) @ ${d.label}` +
+        `\nAvg finish: ${d.avgFinish ?? "N/A"}` +
+        `\nDNFs: ${d.dnfCount}/${d.starts}` +
+        `\nTotal laps led: ${d.totalLapsLed}` +
+        (d.burned ? "\n★ BURNED by FAIRENheight" : "")
+    }),
+    Plot.text(heatmapData, {
+      x: "label", y: "driverLabel",
+      text: d => d.avgFinish
+        ? `${d.avgFinish}${d.dnfCount > 0 ? ` (${d.dnfCount})` : ""}`
+        : "—",
+      fill: d => d.avgFinish && d.avgFinish < 18 ? "black" : "white",
+      fontSize: 10
+    })
+  ]
+}));
+</script>
+</body>
+</html>
