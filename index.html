@@ -71,6 +71,35 @@
       margin-top: 1rem;
       padding-top: 1rem;
     }
+    /* ── Forward Projection ── */
+    .proj-table { width:100%; border-collapse:collapse; font-size:.84rem; margin-bottom:.2rem; }
+    .proj-table th { background:#f0f2f5; text-align:left; padding:5px 8px; font-size:.78rem; color:#495057; font-weight:600; }
+    .proj-table td { padding:5px 8px; border-bottom:1px solid #f5f6f7; vertical-align:middle; }
+    .proj-table tr:last-child td { border-bottom:none; }
+    .proj-table tr:hover td { background:#fafbfc; }
+    .proj-rank { font-weight:700; color:#e17055; min-width:16px; display:inline-block; }
+    .proj-upside { color:#00b894; font-weight:700; }
+    .proj-warn   { color:#e17055; font-weight:600; }
+    .wk-block { margin-bottom:1.4rem; }
+    .wk-header { display:flex; justify-content:space-between; align-items:center;
+                 margin-bottom:.4rem; flex-wrap:wrap; gap:.3rem; }
+    .wk-title  { font-weight:700; font-size:.95rem; color:#343a40; }
+    .wk-type   { font-size:.76rem; background:#e9ecef; border-radius:4px; padding:2px 7px; color:#495057; }
+    .wk-date   { font-size:.8rem; color:#868e96; }
+    .est-badge { font-size:.72rem; background:#fff3cd; color:#856404; border-radius:3px; padding:1px 5px; font-weight:600; }
+    .driver-team { font-size:.77rem; color:#868e96; }
+    .gap-close  { color:#27ae60; font-weight:700; }
+    .gap-medium { color:#e67e22; font-weight:600; }
+    .gap-far    { color:#d63031; font-weight:600; }
+    /* ── Projection Tabs ── */
+    .tab-bar { display:flex; gap:.2rem; margin:.8rem 0 0; border-bottom:2px solid #f0f2f5; }
+    .tab-btn { background:none; border:none; padding:.4rem .9rem; cursor:pointer;
+               font-size:.85rem; font-weight:600; color:#868e96; border-radius:5px 5px 0 0;
+               border-bottom:3px solid transparent; margin-bottom:-2px; transition:color .12s; }
+    .tab-btn.active { color:#343a40; border-bottom-color:#e17055; background:#fafbfc; }
+    .tab-btn:hover:not(.active) { background:#f0f2f5; color:#495057; }
+    .tab-pane { display:none; padding-top:1rem; }
+    .tab-pane.active { display:block; }
   </style>
 </head>
 <body>
@@ -91,9 +120,8 @@
 <section>
   <h2>📊 Pool Standings — After Charlotte (Wk 13)</h2>
   <div class="note">
-    ⚠️ Charlotte scores are PENDING. Once nascarracingpool.com updates, edit <code>poolStandings</code>
-    in this file: set new <code>pts</code> &amp; <code>pos</code>, and set <code>prevPos</code> = the values
-    that are currently in <code>pos</code> before you overwrite them.
+    To update after each race: edit <code>poolStandings</code> — set new <code>pts</code> &amp; <code>pos</code>,
+    and move the old <code>pos</code> into <code>prevPos</code> to drive the ↑↓ arrows.
   </div>
   <div class="chart-wrap" id="standings"></div>
 </section>
@@ -116,6 +144,37 @@
     <strong>Week 14 — Nashville:</strong> 1.33mi concrete oval (intermediate). Check heatmap for
     unburned drivers with strong intermediate avg finishes.
   </p>
+</section>
+
+<section>
+  <h2>🔮 Forward Projection — Remaining Regular Season (Wk 14–26)</h2>
+  <div class="note">
+    Score = DNF-adjusted avg finish (lower = better). <span class="proj-upside">★</span> = laps-led
+    upside (≥15/race avg). <span class="proj-warn">Red %</span> = high DNF risk (≥25%).
+    <span class="est-badge">est.</span> = estimated race. Auto-updates as <code>burned</code> flags change.
+  </div>
+
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="singlepick">🎯 The Pick</button>
+    <button class="tab-btn" data-tab="projection">🔍 Best Available</button>
+    <button class="tab-btn" data-tab="fieldintel">🕵️ Field Intel</button>
+  </div>
+  <div id="singlepick" class="tab-pane active"></div>
+  <div id="projection" class="tab-pane"></div>
+  <div id="fieldintel" class="tab-pane"></div>
+
+  <div id="pointsgap" style="margin-top:1.8rem"></div>
+</section>
+
+<section>
+  <h2>📋 Driver Board — Availability &amp; Track Performance</h2>
+  <div class="note">
+    All tracked drivers sorted by best DNF-adjusted score — available (unburned) first, burned faded
+    at bottom. <strong>Pool Burns</strong> = # of 20 teams known to have used each driver. Update
+    <code>teamRosters</code> in the JS each week as competitor picks are revealed. Hover any score
+    cell for full detail.
+  </div>
+  <div id="driverboard"></div>
 </section>
 
 <footer>
@@ -298,7 +357,7 @@ const drivers = [
     ]
   },
   {
-    name: "Kyle Busch", team: "RCR", car: 8, burned: false,
+    name: "Kyle Busch", team: "RCR", car: 8, burned: false, active: false,
     results: [
       {race:"Daytona 500",    type:"plate",        finish:15, lapsLed:19, dnf:false},
       {race:"Atlanta",        type:"plate",        finish:34, lapsLed:0,  dnf:true},
@@ -313,7 +372,7 @@ const drivers = [
       {race:"Texas",          type:"intermediate", finish:20, lapsLed:0,  dnf:false},
       {race:"Watkins Glen",   type:"road",         finish:8,  lapsLed:0,  dnf:false},
     ]
-    // Note: Kyle Busch did not race Charlotte 600
+    // Note: Kyle Busch did not race Charlotte 600 · active:false = inactive, excluded from projections
   },
   {
     name: "Zane Smith", team: "Front Row", car: 38, burned: false,
@@ -821,6 +880,21 @@ const driversWithCharlotte = drivers.map(d => {
   };
 });
 
+// Manual color scale for heatmap — bypasses Observable Plot color channel entirely
+function heatFill(v) {
+  if (v === null) return "#e9ecef";   // no data → light gray
+  if (v <= 8)    return "#1a9850";   // elite (top-5 pace)
+  if (v <= 12)   return "#66bd63";   // strong
+  if (v <= 16)   return "#d9ef8b";   // solid
+  if (v <= 21)   return "#ffe066";   // midfield
+  if (v <= 27)   return "#f4a442";   // below average
+  return                "#d73027";   // poor / high DNF
+}
+function heatText(v) {
+  if (v === null) return "#999";
+  return v <= 16 ? "#333" : v <= 21 ? "#555" : "white";
+}
+
 // Compute per-driver per-track-type aggregate stats
 const heatmapData = driversWithCharlotte.flatMap(d =>
   trackTypes.map(type => {
@@ -837,8 +911,10 @@ const heatmapData = driversWithCharlotte.flatMap(d =>
       label: trackLabels[type],
       avgFinish, dnfCount, totalLapsLed, starts,
       burned: d.burned,
-      driverLabel: d.burned ? `${d.name} ★` : d.name,
-      score: avgFinish
+      driverLabel: d.burned ? `${d.name} ◆` : d.name,
+      score: avgFinish,
+      fillColor: heatFill(avgFinish),
+      textColor: heatText(avgFinish),
     };
   })
 );
@@ -847,27 +923,32 @@ const heatmapData = driversWithCharlotte.flatMap(d =>
 //  CHARTS
 // ═══════════════════════════════════════════════════════════════════════
 
-// Pool Standings chart
+// Pool Standings chart — prepend position number to each team name label
+const standingsWithPos = poolStandings.map(d => ({
+  ...d,
+  teamLabel: `${d.pos}. ${d.team}`
+}));
+
 document.getElementById("standings").append(Plot.plot({
   title: "Pool Standings — After Charlotte (Wk 13)",
   subtitle: "FAIRENheight highlighted in red. ↑↓ = spots moved vs. prior race.",
-  marginLeft: 220,
+  marginLeft: 260,
   x: { label: "Points", grid: true },
   color: { domain: [false, true], range: ["#b2bec3", "#e17055"] },
   marks: [
-    Plot.barX(poolStandings, {
-      x: "pts", y: "team", fill: "us",
+    Plot.barX(standingsWithPos, {
+      x: "pts", y: "teamLabel", fill: "us",
       sort: { y: "x", reverse: true },
       title: d => `${d.team}: ${d.pts} pts (${d.pos}${d.pos===1?"st":d.pos===2?"nd":d.pos===3?"rd":"th"})`
     }),
-    Plot.text(poolStandings, {
-      x: "pts", y: "team",
+    Plot.text(standingsWithPos, {
+      x: "pts", y: "teamLabel",
       text: d => ` ${d.pts}`,
       dx: 2, fontSize: 11,
       fontWeight: d => d.us ? "bold" : "normal"
     }),
-    Plot.text(poolStandings, {
-      x: 0, y: "team",
+    Plot.text(standingsWithPos, {
+      x: 0, y: "teamLabel",
       text: d => {
         const delta = d.prevPos - d.pos;
         return delta > 0 ? `↑${delta}` : delta < 0 ? `↓${Math.abs(delta)}` : "—";
@@ -883,34 +964,578 @@ document.getElementById("standings").append(Plot.plot({
   ]
 }));
 
-// Driver performance heatmap
-document.getElementById("heatmap").append(Plot.plot({
+// ═══════════════════════════════════════════════════════════════════════
+//  FORWARD PROJECTION  (auto-updates from burned flags + race results)
+// ═══════════════════════════════════════════════════════════════════════
+
+// Remaining regular season schedule — Wk 14–26
+// confirmed:true  = officially published by NASCAR
+// confirmed:false = estimated from typical scheduling patterns
+const remainingSchedule = [
+  { wk:14, race:"Nashville",       date:"May 31",  type:"intermediate", confirmed:true  },
+  { wk:15, race:"Michigan",        date:"~Jun 7",  type:"intermediate", confirmed:true  },
+  { wk:16, race:"Pocono",          date:"~Jun 14", type:"intermediate", confirmed:true  },
+  { wk:17, race:"Coronado",        date:"~Jun 21", type:"road",         confirmed:true  },
+  { wk:18, race:"Sonoma",          date:"~Jun 28", type:"road",         confirmed:true  },
+  { wk:19, race:"Chicago Street",  date:"~Jul 5",  type:"road",         confirmed:false },
+  { wk:20, race:"New Hampshire",   date:"~Jul 12", type:"short",        confirmed:false },
+  { wk:21, race:"Indianapolis RC", date:"~Jul 26", type:"road",         confirmed:false },
+  { wk:22, race:"Iowa",            date:"~Aug 2",  type:"short",        confirmed:false },
+  { wk:23, race:"Richmond",        date:"~Aug 9",  type:"short",        confirmed:false },
+  { wk:24, race:"Bristol Night",   date:"~Aug 23", type:"short",        confirmed:false },
+  { wk:25, race:"Michigan 2",      date:"~Aug 30", type:"intermediate", confirmed:false },
+  { wk:26, race:"Darlington",      date:"~Sep 5",  type:"intermediate", confirmed:false },
+];
+
+// Pool rosters — all 20 teams, complete through Wk 13 · Charlotte 600
+// FAIRENheight auto-derived from burned:true; all others compiled from Wk 1–13 picks
+// Update each week as new picks are revealed on nascarracingpool.com
+const teamRosters = {
+  "FAIRENheight Racing Alliance": driversWithCharlotte.filter(d => d.burned).map(d => d.name),
+  "As Fast As A Gator": ["AJ Allmendinger","Brad Keselowski","Chase Briscoe","Chris Buescher","Christopher Bell","Daniel Suarez","Denny Hamlin","Michael McDowell","Ricky Stenhouse Jr.","Ryan Blaney","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick"],
+  "Stompers":           ["Austin Cindric","Brad Keselowski","Chase Elliott","Christopher Bell","Daniel Suarez","Denny Hamlin","Kyle Larson","Ricky Stenhouse Jr.","Ryan Blaney","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Roadkill":           ["Bubba Wallace","Chase Briscoe","Chris Buescher","Christopher Bell","Daniel Suarez","Denny Hamlin","John H. Nemechek","Josh Berry","Ross Chastain","Ryan Blaney","Shane Van Gisbergen","Todd Gilliland","Ty Gibbs"],
+  "BurninRubber69":     ["Brad Keselowski","Bubba Wallace","Chase Briscoe","Chase Elliott","Christopher Bell","Denny Hamlin","John H. Nemechek","Kyle Larson","Noah Gragson","Ricky Stenhouse Jr.","Shane Van Gisbergen","Tyler Reddick","William Byron"],
+  "Wrecky Stinkhouse":  ["Austin Cindric","Brad Keselowski","Chase Elliott","Chris Buescher","Christopher Bell","Connor Zilisch","Kyle Busch","Ricky Stenhouse Jr.","Ryan Blaney","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick","William Byron"],
+  "split the lane":     ["Brad Keselowski","Carson Hocevar","Chase Briscoe","Christopher Bell","Connor Zilisch","Denny Hamlin","Joey Logano","Kyle Larson","Michael McDowell","Ryan Blaney","Shane Van Gisbergen","Tyler Reddick","William Byron"],
+  "SKIDMARKS":          ["Austin Cindric","Brad Keselowski","Carson Hocevar","Chase Briscoe","Chase Elliott","Christopher Bell","Connor Zilisch","Denny Hamlin","Ross Chastain","Ryan Blaney","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Tap That Ass":       ["Austin Cindric","Brad Keselowski","Carson Hocevar","Chase Elliott","Chris Buescher","Christopher Bell","Denny Hamlin","Joey Logano","Ross Chastain","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick"],
+  "The Big One":        ["Austin Dillon","Brad Keselowski","Chase Elliott","Chris Buescher","Christopher Bell","Denny Hamlin","Kyle Busch","Michael McDowell","Ricky Stenhouse Jr.","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Goodyear":           ["Brad Keselowski","Bubba Wallace","Carson Hocevar","Chase Briscoe","Chase Elliott","Christopher Bell","Kyle Larson","Ryan Blaney","Shane Van Gisbergen","Todd Gilliland","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Jenner2.0":          ["Austin Dillon","Bubba Wallace","Carson Hocevar","Chase Briscoe","Chase Elliott","Christopher Bell","Connor Zilisch","Denny Hamlin","Josh Berry","Kyle Larson","Ryan Blaney","Shane Van Gisbergen","Ty Gibbs"],
+  "ASK Motorsports":    ["Brad Keselowski","Chris Buescher","Christopher Bell","Connor Zilisch","Denny Hamlin","Joey Logano","John H. Nemechek","Josh Berry","Kyle Larson","Ryan Blaney","Shane Van Gisbergen","William Byron"],
+  "MAD":                ["Carson Hocevar","Chase Briscoe","Christopher Bell","Denny Hamlin","John H. Nemechek","Kyle Larson","Ricky Stenhouse Jr.","Ross Chastain","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Melon Balls":        ["Austin Cindric","Austin Dillon","Carson Hocevar","Chase Briscoe","Chase Elliott","Connor Zilisch","Denny Hamlin","Kyle Larson","Ricky Stenhouse Jr.","Ross Chastain","Ryan Preece","Ty Gibbs","Tyler Reddick"],
+  "Slide Job":          ["Austin Cindric","Brad Keselowski","Bubba Wallace","Carson Hocevar","Chase Briscoe","Chase Elliott","Christopher Bell","Denny Hamlin","Kyle Larson","Ryan Blaney","Shane Van Gisbergen","Ty Gibbs","Tyler Reddick"],
+  "PrestigeWorldwide":  ["Austin Dillon","Bubba Wallace","Chase Briscoe","Chase Elliott","Christopher Bell","Connor Zilisch","Daniel Suarez","Joey Logano","Kyle Larson","Ricky Stenhouse Jr.","Ross Chastain","Ty Gibbs","Tyler Reddick"],
+  "Bellwether Racing":  ["Brad Keselowski","Bubba Wallace","Carson Hocevar","Christopher Bell","Denny Hamlin","Josh Berry","Kyle Larson","Ross Chastain","Shane Van Gisbergen","Todd Gilliland","Ty Gibbs","Tyler Reddick","William Byron"],
+  "Bigdaddydicdeluxe":  ["Austin Dillon","Carson Hocevar","Chase Briscoe","Chase Elliott","Christopher Bell","Connor Zilisch","Denny Hamlin","Kyle Larson","Ross Chastain","Ty Gibbs","Tyler Reddick","William Byron"],
+  "LonGone":            ["Austin Cindric","Brad Keselowski","Bubba Wallace","Chase Elliott","Christopher Bell","Connor Zilisch","Daniel Suarez","Ricky Stenhouse Jr.","Ross Chastain","Ryan Blaney","Ryan Preece","Todd Gilliland","Tyler Reddick"],
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  2026 CHAMPIONSHIP POINTS — after Charlotte (Wk 13)
+//  Source: foxsports.com/nascar/cup-series/standings
+// ═══════════════════════════════════════════════════════════════════════
+const pts2026 = {
+  "Tyler Reddick": 620, "Denny Hamlin": 498, "Ryan Blaney": 446, "Ty Gibbs": 425,
+  "Chase Elliott": 423, "Kyle Larson": 386, "Chris Buescher": 385, "Christopher Bell": 361,
+  "Carson Hocevar": 356, "Daniel Suarez": 350, "Brad Keselowski": 343, "William Byron": 337,
+  "Bubba Wallace": 328, "Shane Van Gisbergen": 316, "Chase Briscoe": 304, "Ryan Preece": 303,
+  "Austin Cindric": 288, "Joey Logano": 274, "AJ Allmendinger": 254, "Michael McDowell": 248,
+  "Zane Smith": 244, "Erik Jones": 244, "Ross Chastain": 238, "Austin Dillon": 225,
+  "Todd Gilliland": 223, "Ricky Stenhouse Jr.": 222, "Kyle Busch": 217, "Riley Herbst": 202,
+  "John H. Nemechek": 200, "Noah Gragson": 181, "Josh Berry": 168, "Alex Bowman": 147,
+  "Connor Zilisch": 146, "Cole Custer": 134,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HISTORICAL DATA — 2025 speed rankings by track type
+//  Source: ifantasyrace.com end-of-2025 avg speed rank (lower = better, 1–36 scale)
+//  Intermediate & short: decimal speed ranks; Road: ordinal rank (same scale/direction)
+//  Plate tracks omitted — chaos-driven results add noise, not signal
+//
+//  Blending: N_HIST = 3 (historical data counts as 3 equivalent starts)
+//  Formula: blend = 2026n / (2026n + N_HIST)
+//           finalAdj = blend × adj2026 + (1−blend) × hist2025
+//  Effect: 2 road course starts → 40% 2026 / 60% hist; 5 int starts → 63% / 37%
+// ═══════════════════════════════════════════════════════════════════════
+const hist2025 = {
+  "Ty Gibbs":             { intermediate: 18.17, short: 19.0,  road:  6 },
+  "Carson Hocevar":       { intermediate: 15.50, short: 14.0,  road: 29 },
+  "Brad Keselowski":      { intermediate: 20.08, short: 16.2,  road: 16 },
+  "Ryan Preece":          { intermediate: 14.25, short: 21.2,  road:  9 },
+  "Daniel Suarez":        { intermediate: 25.08, short: 20.7,  road: 19 },
+  "Austin Cindric":       { intermediate: 14.75, short: 12.0,  road: 24 },
+  "Chase Briscoe":        { intermediate: 14.58, short: 10.5,  road:  4 },
+  "AJ Allmendinger":      { intermediate: 17.58, short: 23.0,  road:  7 },
+  "Austin Dillon":        { intermediate: 25.17, short: 19.8,  road: 28 },
+  "Kyle Busch":           { intermediate: 17.00, short: 21.8,  road: 14 },
+  "Zane Smith":           { intermediate: 17.67, short: 21.0,  road: 32 },
+  "Erik Jones":           { intermediate: 18.50, short: 24.0,  road: 31 },
+  "Todd Gilliland":       { intermediate: 27.33, short: 27.8,  road: 34 },
+  "Ricky Stenhouse Jr.":  { intermediate: 26.42, short: 29.5,  road: 32 },
+  "Noah Gragson":         { intermediate: 20.83, short: 26.3,  road: 35 },
+  "Josh Berry":           { intermediate: 15.00, short:  7.8,  road: 27 },
+  // Connor Zilisch — 2026 Cup rookie; no prior Cup history available
+  "Alex Bowman":          { intermediate: 15.92, short: 14.3,  road: 17 },
+  "Riley Herbst":         { intermediate: 30.92, short: 28.5,  road: 23 },
+  "Cole Custer":          { intermediate: 31.50, short: 31.0,  road: 21 },
+  "John H. Nemechek":     { intermediate: 23.17, short: 26.0,  road: 25 },
+  "Michael McDowell":     { intermediate: 22.67, short: 22.7,  road:  5 },
+  "Chris Buescher":       { intermediate: 12.00, short: 19.5,  road: 14 },
+  "Shane Van Gisbergen":  { intermediate: 28.58, short: 24.5,  road:  1 },
+  "Ryan Blaney":          { intermediate:  9.25, short:  3.0,  road:  8 },
+  "William Byron":        { intermediate:  6.08, short:  4.5,  road:  3 },
+  "Tyler Reddick":        { intermediate:  6.58, short: 15.2,  road: 10 },
+  "Denny Hamlin":         { intermediate:  6.67, short:  6.8,  road: 30 },
+  "Ross Chastain":        { intermediate: 15.75, short: 15.0,  road: 11 },
+  "Kyle Larson":          { intermediate:  8.25, short:  7.0,  road: 13 },
+  "Bubba Wallace":        { intermediate: 12.25, short: 13.7,  road: 18 },
+  "Christopher Bell":     { intermediate: 10.75, short:  6.2,  road:  2 },
+  "Chase Elliott":        { intermediate: 10.67, short: 13.5,  road: 11 },
+  "Joey Logano":          { intermediate: 14.42, short:  7.0,  road: 20 },
+};
+
+// Per-driver per-track-type metrics — blends 2026 actuals with 2025 historical ranks
+// histUsed:true is returned when historical data influenced the score
+function driverMetricsForType(driver, trackType) {
+  const N_HIST = 3;
+  const races  = driver.results.filter(r => r.type === trackType);
+
+  // 2026 actuals
+  let adjScore26 = null, avgFinish = 38, dnfRate = 0, dnfCount = 0, avgLapsLed = 0;
+  if (races.length) {
+    dnfCount   = races.filter(r => r.dnf).length;
+    dnfRate    = dnfCount / races.length;
+    const clean = races.filter(r => !r.dnf);
+    avgFinish  = clean.length
+      ? clean.reduce((s, r) => s + r.finish, 0) / clean.length : 38;
+    avgLapsLed = races.reduce((s, r) => s + r.lapsLed, 0) / races.length;
+    adjScore26 = avgFinish * (1 - dnfRate) + 38 * dnfRate;
+  }
+
+  // 2025 historical speed rank (lower = better, acts as adj-score proxy)
+  const histScore = hist2025[driver.name]?.[trackType] ?? null;
+
+  if (adjScore26 === null && histScore === null) return null;
+
+  let finalAdj, histUsed = false;
+  if (adjScore26 !== null && histScore !== null) {
+    const blend = races.length / (races.length + N_HIST);
+    finalAdj = blend * adjScore26 + (1 - blend) * histScore;
+    histUsed = true;
+  } else if (adjScore26 !== null) {
+    finalAdj = adjScore26;
+  } else {
+    finalAdj  = histScore;
+    avgFinish = histScore; // proxy for display
+    histUsed  = true;
+  }
+
+  return { avgFinish, dnfRate, dnfCount, avgLapsLed, starts: races.length, adjScore: finalAdj, histUsed };
+}
+
+function ordinal(n) {
+  return n + (n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th");
+}
+
+function poolBurnCount(driverName) {
+  let count = 0;
+  for (const picks of Object.values(teamRosters)) {
+    if (picks.includes(driverName)) count++;
+  }
+  return count;
+}
+
+// Greedy single-pick: each driver used at most once — mirrors actual pool rule
+function computeSinglePickProjection() {
+  const unburned = driversWithCharlotte.filter(d => !d.burned && d.active !== false);
+  const used = new Set();
+  return remainingSchedule.map(race => {
+    const best = unburned
+      .filter(d => !used.has(d.name))
+      .map(d => { const m = driverMetricsForType(d, race.type); return m ? { d, ...m } : null; })
+      .filter(Boolean)
+      .sort((a, b) => a.adjScore - b.adjScore)[0] || null;
+    if (best) used.add(best.d.name);
+    return { race, pick: best };
+  });
+}
+
+function renderSinglePickProjection() {
+  const el = document.getElementById("singlepick");
+  if (!el) return;
+
+  const picks = computeSinglePickProjection();
+  let html = `<table class="proj-table">
+    <thead><tr>
+      <th style="width:38px">Wk</th>
+      <th>Race</th>
+      <th>Track Type</th>
+      <th>Recommended Pick</th>
+      <th style="text-align:center" title="# of 20 pool teams known to have burned this driver">Burns</th>
+      <th title="DNF-penalized avg finish — lower is better">Adj Score</th>
+      <th>Clean Avg</th>
+      <th>DNF%</th>
+      <th title="Avg laps led per race on this track type">★ Laps</th>
+    </tr></thead><tbody>`;
+
+  for (const { race, pick } of picks) {
+    if (!pick) {
+      html += `<tr>
+        <td style="color:#868e96;font-weight:600">${race.wk}</td>
+        <td>${race.race}${!race.confirmed ? ` <span class="est-badge">est.</span>` : ""}</td>
+        <td><span class="wk-type">${trackLabels[race.type]}</span></td>
+        <td colspan="5" style="color:#adb5bd;font-style:italic">No eligible driver</td>
+      </tr>`;
+      continue;
+    }
+    const laps = pick.avgLapsLed >= 15
+      ? `<span class="proj-upside">★ ${pick.avgLapsLed.toFixed(0)}</span>`
+      : pick.avgLapsLed.toFixed(0);
+    const dnf = pick.dnfRate >= 0.25
+      ? `<span class="proj-warn">${(pick.dnfRate*100).toFixed(0)}%</span>`
+      : `${(pick.dnfRate*100).toFixed(0)}%`;
+    const burns = poolBurnCount(pick.d.name);
+    const burnsColor = burns >= 5 ? "color:#e74c3c;font-weight:700"
+                     : burns >= 3 ? "color:#e67e22;font-weight:600"
+                     : burns >= 1 ? "color:#495057"
+                     : "color:#adb5bd";
+    html += `<tr>
+      <td style="color:#868e96;font-weight:600">${race.wk}</td>
+      <td><strong>${race.race}</strong>${!race.confirmed ? ` <span class="est-badge">est.</span>` : ""}</td>
+      <td><span class="wk-type">${trackLabels[race.type]}</span></td>
+      <td>
+        <strong style="color:#e17055">${pick.d.name}</strong>
+        <span class="driver-team"> #${pick.d.car} ${pick.d.team}</span>
+      </td>
+      <td style="text-align:center;${burnsColor}" title="${burns} of 20 pool teams have burned ${pick.d.name}">${burns > 0 ? burns : "—"}</td>
+      <td><strong>${pick.adjScore.toFixed(1)}</strong></td>
+      <td>${pick.avgFinish.toFixed(1)} <span class="driver-team">(${pick.starts}${pick.histUsed ? '+H' : ''})</span></td>
+      <td>${dnf}</td>
+      <td>${laps}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>
+  <p style="font-size:.78rem;color:#adb5bd;margin:.4rem 0 0">
+    Each driver appears at most once (greedy by week). Re-optimizes automatically as picks are burned.
+  </p>`;
+  el.innerHTML = html;
+}
+
+function renderPointsGap() {
+  const el = document.getElementById("pointsgap");
+  if (!el) return;
+
+  const us = poolStandings.find(s => s.us);
+  if (!us) return;
+
+  const above = [...poolStandings]
+    .filter(s => s.pos < us.pos)
+    .sort((a, b) => a.pos - b.pos);
+
+  const racesLeft = remainingSchedule.length;
+
+  let html = `<h3 style="font-size:.95rem;font-weight:700;margin:0 0 .5rem;color:#343a40">
+    📈 Points Gap — ${racesLeft} Races Remaining
+  </h3>`;
+  html += `<p style="font-size:.83rem;color:#666;margin-bottom:.7rem">
+    FAIRENheight: <strong>${us.pts} pts (${ordinal(us.pos)})</strong>
+    &nbsp;·&nbsp; Need to catch or pass ${above.length} team${above.length !== 1 ? "s" : ""}.
+    <span style="font-size:.78rem;color:#adb5bd">&nbsp;Assumes opponents hold current avg.</span>
+  </p>`;
+
+  html += `<table class="proj-table"><thead><tr>
+    <th>Pos</th><th>Team</th><th>Pts</th>
+    <th>Gap</th><th>Avg pts/race needed to pass</th>
+  </tr></thead><tbody>`;
+
+  for (const t of above) {
+    const gap = t.pts - us.pts;
+    const ppr = (gap / racesLeft).toFixed(1);
+    const gapClass = gap <= 40 ? "gap-close" : gap <= 100 ? "gap-medium" : "gap-far";
+    html += `<tr>
+      <td>${ordinal(t.pos)}</td>
+      <td style="font-weight:600">${t.team}</td>
+      <td>${t.pts}</td>
+      <td class="${gapClass}">−${gap}</td>
+      <td style="font-size:.8rem;color:#495057">+${ppr} / race</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table>`;
+  el.innerHTML = html;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  FIELD INTEL — predict what each competitor team will likely pick
+// ═══════════════════════════════════════════════════════════════════════
+function renderFieldIntel() {
+  const el = document.getElementById("fieldintel");
+  if (!el) return;
+
+  // Competitors only (exclude FAIRENheight — our picks come from the greedy algo)
+  const competitors = Object.entries(teamRosters)
+    .filter(([name]) => name !== "FAIRENheight Racing Alliance");
+
+  // Our own greedy season picks for comparison
+  const ourPickData = computeSinglePickProjection();
+  const ourPickMap  = new Map(ourPickData.map(({race, pick}) => [race.wk, pick?.d?.name ?? null]));
+
+  let html = `<table class="proj-table">
+    <thead><tr>
+      <th style="width:38px">Wk</th>
+      <th>Race</th>
+      <th>Type</th>
+      <th style="text-align:center" title="Our greedy season pick — highlighted in field columns">Our Pick</th>
+      <th colspan="3" style="text-align:center">Top Field Predictions (of 19 competitors)</th>
+    </tr></thead><tbody>`;
+
+  for (const race of remainingSchedule) {
+    // Count how many competitors have each driver as their best available
+    const tally = {};
+    for (const [, burned] of competitors) {
+      const avail = driversWithCharlotte.filter(d =>
+        d.active !== false && !burned.includes(d.name)
+      );
+      const best = avail
+        .map(d => ({ d, m: driverMetricsForType(d, race.type) }))
+        .filter(({m}) => m !== null)
+        .sort((a, b) => a.m.adjScore - b.m.adjScore)[0];
+      if (best) tally[best.d.name] = (tally[best.d.name] ?? 0) + 1;
+    }
+
+    const sorted = Object.entries(tally)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const ourDriver  = ourPickMap.get(race.wk);
+    const ourOverlap = ourDriver ? (tally[ourDriver] ?? 0) : 0;
+    const overlapColor = ourOverlap >= 5 ? "#e74c3c"
+                       : ourOverlap >= 3 ? "#e67e22"
+                       : ourOverlap >= 1 ? "#495057"
+                       : "#27ae60";
+    const overlapLabel = ourOverlap === 0 ? "unique ✓"
+                       : `${ourOverlap} also pick`;
+    const ourCell = ourDriver
+      ? `<strong style="color:#e17055">${ourDriver}</strong>
+         <span style="display:block;font-size:.7rem;color:${overlapColor};font-weight:600">${overlapLabel}</span>`
+      : `<span style="color:#adb5bd;font-style:italic">TBD</span>`;
+
+    const topCols = sorted.slice(0, 3).map(({name, count}) => {
+      const cc = count >= 5 ? "color:#e74c3c;font-weight:700"
+               : count >= 3 ? "color:#e67e22;font-weight:600"
+               : "color:#495057";
+      const highlight = name === ourDriver
+        ? "background:#fff3cd;border-radius:4px;padding:0 4px" : "";
+      return `<td style="text-align:center;font-size:.82rem;vertical-align:top">
+        <span style="${cc};${highlight}">${name}</span>
+        <span style="display:block;font-size:.7rem;color:#adb5bd">${count} team${count > 1 ? "s" : ""}</span>
+      </td>`;
+    });
+    while (topCols.length < 3) topCols.push('<td></td>');
+
+    html += `<tr>
+      <td style="color:#868e96;font-weight:600">${race.wk}</td>
+      <td><strong>${race.race}</strong>${!race.confirmed ? ` <span class="est-badge">est.</span>` : ""}</td>
+      <td><span class="wk-type">${trackLabels[race.type]}</span></td>
+      <td style="text-align:center;font-size:.82rem">${ourCell}</td>
+      ${topCols.join("")}
+    </tr>`;
+  }
+
+  html += `</tbody></table>
+  <p style="font-size:.78rem;color:#adb5bd;margin:.5rem 0 0">
+    Field picks = each team's best unburned driver at that track type by adj score (current burned sets).
+    Highlighted = overlap with our pick. &nbsp;
+    <span style="color:#27ae60;font-weight:600">Unique ✓</span> = nobody else targeting → leapfrog potential.
+    <span style="color:#e74c3c;font-weight:600">Red</span> = 5+ teams ·
+    <span style="color:#e67e22;font-weight:600">Orange</span> = 3+.
+  </p>`;
+  el.innerHTML = html;
+}
+
+// Score → color (lower adj score = greener = better)
+function adjScoreColor(score) {
+  if (score === null) return { bg:"#f8f9fa", fg:"#adb5bd" };
+  if (score <= 8)  return { bg:"#27ae60", fg:"white" };
+  if (score <= 12) return { bg:"#82c91e", fg:"white" };
+  if (score <= 16) return { bg:"#f59f00", fg:"white" };
+  if (score <= 22) return { bg:"#e67e22", fg:"white" };
+  return              { bg:"#e74c3c", fg:"white" };
+}
+
+function renderDriverBoard() {
+  const el = document.getElementById("driverboard");
+  if (!el) return;
+
+  function bestAdj(driver) {
+    const ss = trackTypes.map(t => driverMetricsForType(driver, t)).filter(Boolean).map(m => m.adjScore);
+    return ss.length ? Math.min(...ss) : 999;
+  }
+
+  const available = driversWithCharlotte.filter(d => !d.burned && d.active !== false).sort((a,b) => bestAdj(a) - bestAdj(b));
+  const inactive  = driversWithCharlotte.filter(d => d.active === false);
+  const burned    = driversWithCharlotte.filter(d =>  d.burned && d.active !== false).sort((a,b) => a.name.localeCompare(b.name));
+
+  function scoreCell(driver, type) {
+    const m = driverMetricsForType(driver, type);
+    if (!m) return `<td style="text-align:center;background:#f8f9fa;color:#adb5bd;font-size:.81rem">—</td>`;
+    const { bg, fg } = adjScoreColor(m.adjScore);
+    const star = m.avgLapsLed >= 15 ? "★" : "";
+    const h = m.histUsed ? `<span style="font-size:.62rem;opacity:.5;font-weight:400">+H</span>` : '';
+    return `<td style="text-align:center;background:${bg};color:${fg};font-weight:600;font-size:.81rem;line-height:1.25"
+      title="${driver.name} @ ${trackLabels[type]}: adj ${m.adjScore.toFixed(1)}, clean avg ${m.avgFinish.toFixed(1)}, DNF ${(m.dnfRate*100).toFixed(0)}%, ${m.avgLapsLed.toFixed(0)} laps led/race${m.histUsed ? ' · blended w/ 2025 hist' : ''}"
+      >${star}${m.adjScore.toFixed(1)}${h}<br><span style="font-weight:400;font-size:.7rem;opacity:.8">${m.starts}n</span></td>`;
+  }
+
+  function driverRow(d, dim) {
+    const burns = poolBurnCount(d.name);
+    const burnsStyle = burns >= 5 ? "color:#e74c3c;font-weight:700"
+                     : burns >= 3 ? "color:#e67e22;font-weight:600"
+                     : burns >= 1 ? "color:#495057;font-weight:600"
+                     : "color:#adb5bd";
+    const availBadge = d.active === false
+      ? `<span style="font-size:.72rem;background:#f8d7da;color:#842029;border-radius:3px;padding:2px 6px">inactive</span>`
+      : d.burned
+        ? `<span style="font-size:.72rem;background:#e9ecef;color:#868e96;border-radius:3px;padding:2px 6px">used</span>`
+        : `<span style="font-size:.72rem;background:#d4edda;color:#155724;border-radius:3px;padding:2px 6px;font-weight:600">available</span>`;
+
+    return `<tr style="${dim ? "opacity:.35" : ""}">
+      <td style="text-align:center">${availBadge}</td>
+      <td style="color:#868e96;font-size:.84rem">${d.car}</td>
+      <td><strong>${d.name}</strong></td>
+      <td style="font-size:.84rem">${d.team}</td>
+      <td style="text-align:center;font-size:.84rem;color:#495057">${pts2026[d.name] ?? "—"}</td>
+      <td style="text-align:center;${burnsStyle}"
+        title="${burns} of 20 pool teams known to have burned ${d.name}">${burns > 0 ? burns : "—"}</td>
+      ${scoreCell(d,"intermediate")}
+      ${scoreCell(d,"short")}
+      ${scoreCell(d,"plate")}
+      ${scoreCell(d,"road")}
+    </tr>`;
+  }
+
+  let html = `<table class="proj-table">
+    <thead><tr>
+      <th style="text-align:center" title="FAIRENheight availability">Us</th>
+      <th>#</th>
+      <th>Driver</th>
+      <th>Team</th>
+      <th style="text-align:center" title="2026 championship points after Wk 13">Pts</th>
+      <th style="text-align:center" title="# of 20 pool teams known to have burned this driver">Pool Burns</th>
+      <th style="text-align:center">🏁 Int</th>
+      <th style="text-align:center">🔄 Short</th>
+      <th style="text-align:center">🌀 Plate</th>
+      <th style="text-align:center">🌿 Road</th>
+    </tr></thead><tbody>`;
+
+  for (const d of available) html += driverRow(d, false);
+  for (const d of burned)    html += driverRow(d, true);
+  for (const d of inactive)  html += driverRow(d, true);
+
+  html += `</tbody></table>
+  <p style="font-size:.77rem;color:#adb5bd;margin:.5rem 0 0">
+    Score = DNF-adj avg finish (lower = better) &nbsp;·&nbsp; <em>n</em> = 2026 starts &nbsp;·&nbsp;
+    +H = blended w/ 2025 historical speed ranks (hover for detail) &nbsp;·&nbsp;
+    ★ = avg ≥15 laps led/race (winning upside) &nbsp;·&nbsp;
+    Pool Burns = known intel — update <code>teamRosters</code> weekly &nbsp;·&nbsp;
+    <span style="background:#27ae60;color:white;padding:0 4px;border-radius:2px">≤8</span>
+    <span style="background:#82c91e;color:white;padding:0 4px;border-radius:2px">≤12</span>
+    <span style="background:#f59f00;color:white;padding:0 4px;border-radius:2px">≤16</span>
+    <span style="background:#e67e22;color:white;padding:0 4px;border-radius:2px">≤22</span>
+    <span style="background:#e74c3c;color:white;padding:0 4px;border-radius:2px">&gt;22</span>
+  </p>`;
+  el.innerHTML = html;
+}
+
+function renderProjection() {
+  const el = document.getElementById("projection");
+  if (!el) return;
+
+  const unburned = driversWithCharlotte.filter(d => !d.burned && d.active !== false);
+  let html = "";
+
+  for (const race of remainingSchedule) {
+    const recs = unburned
+      .map(d => { const m = driverMetricsForType(d, race.type); return m ? { d, ...m } : null; })
+      .filter(Boolean)
+      .sort((a, b) => a.adjScore - b.adjScore)
+      .slice(0, 5);
+
+    html += `<div class="wk-block">
+      <div class="wk-header">
+        <span class="wk-title">Wk ${race.wk} &nbsp;·&nbsp; ${race.race}</span>
+        <span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+          <span class="wk-type">${trackLabels[race.type]}</span>
+          <span class="wk-date">${race.date}</span>
+          ${!race.confirmed ? `<span class="est-badge">est.</span>` : ""}
+        </span>
+      </div>
+      <table class="proj-table"><thead><tr>
+        <th>#</th><th>Driver / Team</th>
+        <th title="DNF-penalized composite — lower is better">Adj Score ↓</th>
+        <th>Avg Finish (clean)</th><th>DNF%</th>
+        <th title="Avg laps led per race on this track type">Laps/Race</th>
+      </tr></thead><tbody>`;
+
+    recs.forEach((r, i) => {
+      const laps = r.avgLapsLed >= 15
+        ? `<span class="proj-upside">★ ${r.avgLapsLed.toFixed(0)}</span>`
+        : r.avgLapsLed.toFixed(0);
+      const dnf = r.dnfRate >= 0.25
+        ? `<span class="proj-warn">${(r.dnfRate*100).toFixed(0)}%</span>`
+        : `${(r.dnfRate*100).toFixed(0)}%`;
+      html += `<tr>
+        <td><span class="proj-rank">${i+1}</span></td>
+        <td><strong>${r.d.name}</strong> <span class="driver-team">#${r.d.car} ${r.d.team}</span></td>
+        <td><strong>${r.adjScore.toFixed(1)}</strong></td>
+        <td>${r.avgFinish.toFixed(1)} <span class="driver-team">(${r.starts}${r.histUsed ? '+H' : ''})</span></td>
+        <td>${dnf}</td><td>${laps}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+renderSinglePickProjection();
+renderProjection();
+renderFieldIntel();
+renderPointsGap();
+renderDriverBoard();
+
+// Tab switching for projection section
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const pane = document.getElementById(btn.dataset.tab);
+    if (pane) pane.classList.add('active');
+  });
+});
+
+// Driver performance heatmap — manual fill colors (no Observable Plot color channel)
+const heatmapEl = document.getElementById("heatmap");
+heatmapEl.insertAdjacentHTML("afterbegin", `
+  <div style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;font-size:.77rem;margin-bottom:.6rem">
+    <span style="background:#1a9850;color:white;padding:2px 8px;border-radius:3px">≤ 8 elite</span>
+    <span style="background:#66bd63;color:white;padding:2px 8px;border-radius:3px">≤ 12 strong</span>
+    <span style="background:#d9ef8b;color:#333;padding:2px 8px;border-radius:3px">≤ 16 solid</span>
+    <span style="background:#ffe066;color:#555;padding:2px 8px;border-radius:3px">≤ 21 mid</span>
+    <span style="background:#f4a442;color:white;padding:2px 8px;border-radius:3px">≤ 27 risky</span>
+    <span style="background:#d73027;color:white;padding:2px 8px;border-radius:3px">&gt; 27 poor</span>
+    <span style="background:#e9ecef;color:#999;padding:2px 8px;border-radius:3px">— no data</span>
+    <span style="color:#adb5bd;margin-left:.3rem">avg clean finish (lower = better) · DNFs in parens</span>
+  </div>
+`);
+heatmapEl.append(Plot.plot({
   title: "Driver Performance by Track Type (2026, through Charlotte (Wk 13))",
-  subtitle: "Darker green = better avg finish. DNF count in parens. ★ = burned by FAIRENheight.",
+  subtitle: "Avg clean finish per track type. DNF count in parens. ◆ = burned by FAIRENheight.",
   marginLeft: 170, marginBottom: 60, height: 1050, width: 820,
   y: { label: "Driver" },
-  color: {
-    scheme: "RdYlGn",
-    domain: [40, 1],
-    legend: true,
-    label: "Avg Finish (lower = better)"
-  },
   marks: [
     Plot.cell(heatmapData, {
-      x: "label", y: "driverLabel", fill: "avgFinish",
+      x: "label", y: "driverLabel",
+      fill: d => d.fillColor,
       title: d =>
         `${d.driver} (${d.team}) @ ${d.label}` +
         `\nAvg finish: ${d.avgFinish ?? "N/A"}` +
         `\nDNFs: ${d.dnfCount}/${d.starts}` +
         `\nTotal laps led: ${d.totalLapsLed}` +
-        (d.burned ? "\n★ BURNED by FAIRENheight" : "")
+        (d.burned ? "\n◆ BURNED by FAIRENheight" : "")
     }),
     Plot.text(heatmapData, {
       x: "label", y: "driverLabel",
       text: d => d.avgFinish
         ? `${d.avgFinish}${d.dnfCount > 0 ? ` (${d.dnfCount})` : ""}`
         : "—",
-      fill: d => d.avgFinish && d.avgFinish < 18 ? "black" : "white",
+      fill: d => d.textColor,
       fontSize: 10
     })
   ]
